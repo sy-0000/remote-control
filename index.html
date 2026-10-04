@@ -1,0 +1,1591 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小車遙控器</title>
+<meta name="description" content="可切換藍芽或無線電（USB 橋接板），用網頁按鈕、中文語音（可搭配 Gemini AI）或手勢控制 micro:bit V2、悟空板小車與機械手臂。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='18' width='52' height='30' rx='10' fill='%234679dd'/%3E%3Ccircle cx='20' cy='50' r='7' fill='%2317243a'/%3E%3Ccircle cx='44' cy='50' r='7' fill='%2317243a'/%3E%3C/svg%3E">
+<style>
+:root{--ink:#17243a;--blue:#4679dd;--line:#d9e3f5;--muted:#66738a}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,#f9fbff,#edf4ff);color:var(--ink);font-family:Arial,"Microsoft JhengHei","PingFang TC",sans-serif;min-height:100vh}
+main{max-width:980px;margin:auto;padding:40px 20px 64px;position:relative}
+header{text-align:center;margin:0 auto 24px}
+header p{color:var(--blue);font-size:.76rem;font-weight:800;letter-spacing:.14em;margin:0}
+h1{font-size:clamp(2rem,5vw,3.1rem);letter-spacing:-.04em;margin:10px 0}
+header span,.hint,.arm-note{color:var(--muted)}
+button{font:inherit}
+.card{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:0 12px 32px #2a528414}
+
+/* 右上角：連線方式切換 */
+.transport-switch{position:absolute;top:18px;right:20px;display:flex;gap:4px;padding:4px;border-radius:999px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 22px #8da6cf22}
+.transport-switch button{border:0;cursor:pointer;padding:8px 14px;border-radius:999px;background:transparent;color:#536078;font-weight:800;white-space:nowrap}
+.transport-switch button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.transport-switch button:disabled{cursor:wait;opacity:.6}
+
+/* 連線列 */
+.connection{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:15px 18px;margin-bottom:16px;font-weight:bold;color:#536078}
+.connection .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#d4dbe7;margin-right:8px;vertical-align:middle}
+.connection .dot.on{background:#3ecb91;box-shadow:0 0 0 4px #d7f8e9}
+.connection .dot.busy{background:#f1b53b;box-shadow:0 0 0 4px #fff0c8;animation:blink 1s infinite}
+.connection small{display:block;margin-top:5px;font-weight:normal;color:#8290a6;font-size:.8rem}
+.conn-buttons{display:flex;gap:8px;flex-shrink:0}
+.connect{border:0;cursor:pointer;border-radius:12px;background:var(--blue);color:#fff;padding:11px 15px;font-weight:800}
+.connect.ghost{background:#eef3fb;color:#536078}
+.connect:disabled{opacity:.6;cursor:wait}
+.icon-btn{border:0;cursor:pointer;width:44px;border-radius:12px;background:#eef3fb;color:#536078;font-size:1.25rem;line-height:1}
+.icon-btn:hover{background:#e0e9f8}
+@keyframes blink{50%{opacity:.35}}
+
+/* 分頁 */
+.tabs{display:flex;gap:6px;width:max-content;max-width:100%;margin:0 auto 20px;padding:6px;border-radius:999px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 22px #8da6cf22}
+.tab{border:0;cursor:pointer;padding:10px 18px;border-radius:999px;background:transparent;color:#536078;font-weight:800;white-space:nowrap}
+.tab[aria-selected="true"]{background:var(--blue);color:#fff}
+[hidden]{display:none!important}
+
+/* 按鈕控制 */
+.remote{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+.panel{padding:23px}
+.panel h2,.guide h2,.voice-guide h2{margin:0 0 5px;font-size:1.2rem}
+.hint{font-size:.86rem;line-height:1.45;margin:0 0 21px}
+.dpad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:340px;margin:auto}
+.control{border:0;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;min-height:98px;border-radius:19px;display:grid;place-content:center;gap:5px;position:relative;color:#243654;box-shadow:0 5px 0 #b9cae4;transition:transform .1s,box-shadow .1s}
+.control strong{font-size:2rem;line-height:1}
+.control span{font-weight:800}
+.control small{position:absolute;right:9px;bottom:8px;color:#65728c;font-weight:bold}
+.sun{background:#fff0af}.mint{background:#c9f4e7}.lavender{background:#e8e1ff}.coral{background:#ffe1dc}
+.control.active{transform:translateY(4px);box-shadow:0 1px 0 #aebfd9;filter:saturate(1.3)}
+.stop-mark{display:grid;place-items:center;border-radius:50%;color:#e75f62;border:3px solid #ffd1d1;font-size:.7rem;font-weight:900}
+.arm-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.arm-grid .control{min-height:116px}
+.arm-note{text-align:center;font-size:.78rem;margin:17px 0 0}
+
+/* 語音控制 */
+.voice-control-card{padding:30px;text-align:center}
+.ai-chip{display:inline-block;margin:0 0 20px;padding:6px 12px;border-radius:999px;background:#eef3fb;color:#536078;font-size:.82rem;font-weight:800;border:0;cursor:pointer}
+.ai-chip.on{background:#e6f8ef;color:#1f7a50}
+.voice-button{border:0;cursor:pointer;width:190px;height:190px;border-radius:50%;background:linear-gradient(145deg,#5b8df0,#755ee5);color:#fff;box-shadow:0 12px 0 #4159b5,0 22px 40px #5f77d044;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:9px}
+.voice-button strong{font-size:3.2rem}
+.voice-button span{font-size:1.05rem;font-weight:900}
+.voice-button.listening{animation:voice-pulse 1s infinite;box-shadow:0 7px 0 #b83957,0 0 0 13px #f99bb84d;background:linear-gradient(145deg,#fa789d,#df496d)}
+.voice-button:disabled{cursor:wait}
+@keyframes voice-pulse{50%{transform:scale(1.04);box-shadow:0 7px 0 #b83957,0 0 0 24px #f99bb823}}
+.heard{min-height:28px;margin:28px auto 12px;font-weight:800;color:#344868;line-height:1.5}
+.movement-state{width:min(460px,100%);margin:0 auto;padding:13px;border-radius:13px;background:#eef3fb;color:#63728b;font-weight:800}
+.movement-state.moving{background:#fff0b9;color:#775800}
+.voice-guide{margin-top:22px;padding:28px}
+.phrase-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.phrase-grid span{padding:11px;border-radius:11px;background:#eef4ff;text-align:center;color:#385173;font-weight:700}
+.phrase-grid span.ai{background:#e6f8ef;color:#1f6b48}
+.safety-note{margin:18px 0 0;color:#9a4f3c;line-height:1.6}
+
+/* 手勢控制 */
+.gesture-card{padding:24px}
+.gesture-layout{display:grid;grid-template-columns:1.25fr .75fr;gap:20px;align-items:start}
+.cam-wrap{position:relative;aspect-ratio:4/3;border-radius:18px;overflow:hidden;background:#15213a}
+.cam-wrap video,.cam-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.cam-placeholder{position:absolute;inset:0;display:grid;place-content:center;gap:14px;text-align:center;color:#c8d4ea;padding:20px}
+.cam-placeholder .connect{justify-self:center}
+.gesture-now{padding:16px;border-radius:16px;background:#eef3fb;text-align:center;margin-bottom:14px}
+.gesture-now strong{display:block;font-size:2.4rem;line-height:1.2}
+.gesture-now span{font-weight:800;color:#536078}
+.gesture-now.drive{background:#fff0b9}.gesture-now.drive span{color:#775800}
+.gesture-now.arm{background:#e8e1ff}
+.gesture-map{width:100%;border-collapse:collapse;font-size:.9rem}
+.gesture-map td{padding:7px 6px;border-bottom:1px solid #edf1f8}
+.gesture-map td:first-child{font-size:1.25rem;width:44px;text-align:center}
+.gesture-map td:last-child{font-weight:800;color:#385173}
+
+.emergency{border:0;cursor:pointer;display:block;width:min(460px,100%);margin:22px auto 0;border-radius:14px;padding:16px;background:#e95058;color:#fff;font-weight:900;box-shadow:0 5px 0 #bb3440}
+.emergency:active{transform:translateY(4px);box-shadow:0 1px 0 #bb3440}
+.guide{margin-top:27px;padding:22px 25px;border-radius:22px;background:#e7f0ff;color:#42516a}
+.guide ol{padding-left:1.2em;margin:12px 0;line-height:1.8}
+.guide p{font-size:.84rem;line-height:1.55;margin:12px 0 0;color:#5e6f89}
+
+/* 設定視窗 */
+dialog{border:0;border-radius:22px;padding:0;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:0 30px 80px #17243a55;color:var(--ink)}
+dialog::backdrop{background:#17243a66}
+.settings{padding:24px}
+.settings h2{margin:0 0 4px;font-size:1.3rem}
+.settings h3{margin:22px 0 10px;font-size:1rem;color:#385173}
+.field{display:grid;gap:6px;margin-bottom:14px}
+.field>span{font-weight:800;font-size:.9rem}
+.field small,.settings .note{color:#65758e;font-size:.8rem;line-height:1.5}
+.field input[type=text],.field input[type=password],.field input[type=number],.field select{width:100%;padding:10px;border:1px solid #bdcce4;border-radius:10px;font:inherit;background:#fff}
+.row{display:flex;gap:8px;align-items:center}
+.row>input,.row>select{flex:1;min-width:0}
+.small-btn{border:0;cursor:pointer;border-radius:10px;background:#eef3fb;color:#385173;padding:10px 12px;font-weight:800;white-space:nowrap}
+.check{display:flex;gap:10px;align-items:center;font-weight:800;margin-bottom:14px}
+.check input{width:18px;height:18px}
+.range-row{display:grid;grid-template-columns:1fr 52px;gap:10px;align-items:center}
+.range-row output{font-weight:800;text-align:right}
+.test-result{min-height:20px;font-size:.85rem;font-weight:700;color:#536078;margin-top:6px;line-height:1.5}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid #edf1f8;position:sticky;bottom:0;background:#fff}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+@media(max-width:820px){
+  .transport-switch{position:static;width:max-content;margin:0 auto 14px}
+}
+@media(max-width:680px){
+  main{padding:26px 16px 40px}
+  .connection{flex-direction:column;align-items:stretch}
+  .conn-buttons .connect{flex:1}
+  .remote,.gesture-layout{grid-template-columns:1fr}
+  .panel,.gesture-card{padding:18px}
+  .control{min-height:85px}
+  .arm-grid .control{min-height:100px}
+  .voice-control-card,.voice-guide{padding:20px}
+  .voice-button{width:160px;height:160px}
+  .phrase-grid{grid-template-columns:1fr 1fr}
+  .tab{padding:9px 12px;font-size:.9rem}
+  .two-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="transport-switch" role="group" aria-label="連線方式" title="切換連線方式（會先中斷目前連線）">
+    <button type="button" data-transport="ble" aria-pressed="true">🔵 藍芽</button>
+    <button type="button" data-transport="radio" aria-pressed="false">📻 無線電</button>
+  </div>
+
+  <header>
+    <p>MICRO:BIT V2 · 悟空 WUKONG</p>
+    <h1>小車與機械手臂遙控器</h1>
+    <span data-for-transport="ble">藍芽模式：網頁直接連小車。連線一次即可在「按鈕」「語音」「手勢」之間切換。</span>
+    <span data-for-transport="radio" hidden>無線電模式：網頁 → USB → 橋接板 micro:bit → 無線電 → 小車。連線一次即可在「按鈕」「語音」「手勢」之間切換。</span>
+  </header>
+
+  <section class="card connection">
+    <div>
+      <span class="dot" id="dot"></span><span id="status">尚未連線</span>
+      <small id="detail"></small>
+    </div>
+    <div class="conn-buttons">
+      <button class="connect" id="connectBtn">連接</button>
+      <button class="connect ghost" id="disconnectBtn" hidden>中斷連線</button>
+      <button class="icon-btn" id="settingsBtn" title="設定" aria-label="設定">⚙️</button>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-buttons" aria-selected="true" data-mode="buttons">⌨️ 按鈕</button>
+    <button class="tab" role="tab" id="tab-voice" aria-selected="false" data-mode="voice">🎙️ 語音</button>
+    <button class="tab" role="tab" id="tab-gesture" aria-selected="false" data-mode="gesture">✋ 手勢</button>
+  </nav>
+
+  <!-- 按鈕控制 -->
+  <section id="mode-buttons" role="tabpanel" aria-labelledby="tab-buttons">
+    <div class="remote">
+      <div class="card panel">
+        <h2>行駛控制</h2>
+        <p class="hint">按住按鈕或 W/A/S/D、方向鍵行駛；放開即停。速度可在 ⚙️ 設定調整。</p>
+        <div class="dpad">
+          <span></span>
+          <button class="control sun" data-drive="F" aria-label="前進"><strong>↑</strong><span>前進</span><small>W</small></button>
+          <span></span>
+          <button class="control mint" data-drive="L" aria-label="左轉"><strong>↺</strong><span>左轉</span><small>A</small></button>
+          <div class="stop-mark">STOP</div>
+          <button class="control mint" data-drive="R" aria-label="右轉"><strong>↻</strong><span>右轉</span><small>D</small></button>
+          <span></span>
+          <button class="control sun" data-drive="B" aria-label="後退"><strong>↓</strong><span>後退</span><small>S</small></button>
+          <span></span>
+        </div>
+      </div>
+      <div class="card panel">
+        <h2>機械手臂</h2>
+        <p class="hint">按一下即定位，也可按 I/K/J/L；角度在 micro:bit 程式調整。</p>
+        <div class="arm-grid">
+          <button class="control lavender" data-arm="U" aria-label="手臂上"><strong>↟</strong><span>手臂上</span><small>I</small></button>
+          <button class="control lavender" data-arm="D" aria-label="手臂下"><strong>↡</strong><span>手臂下</span><small>K</small></button>
+          <button class="control coral" data-arm="C" aria-label="夾住"><strong>⊏⊐</strong><span>夾住</span><small>J</small></button>
+          <button class="control coral" data-arm="O" aria-label="打開"><strong>⊏ ⊐</strong><span>打開</span><small>L</small></button>
+        </div>
+        <div class="arm-note">S0：手臂升降（上 95°／下 145°）　·　S1：夾爪（夾 35°／開 95°）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 語音控制 -->
+  <section id="mode-voice" role="tabpanel" aria-labelledby="tab-voice" hidden>
+    <div class="card voice-control-card">
+      <button class="ai-chip" id="aiChip" title="開啟設定">AI 未設定 · 使用內建規則</button><br>
+      <button class="voice-button" id="voiceBtn"><strong>🎙️</strong><span id="voiceLabel">按一下說話</span></button>
+      <p class="heard" id="heard" aria-live="polite">連線後按一下麥克風，再說出指令</p>
+      <div class="movement-state" id="movement">● 安全待命中</div>
+    </div>
+    <div class="card voice-guide">
+      <h2>語音指令範例</h2>
+      <div class="phrase-grid">
+        <span>「前進」（預設 1 秒）</span><span>「後退 2 秒」</span>
+        <span>「左轉半秒」</span><span>「前進 50 公分」</span>
+        <span>「手臂上升」</span><span>「夾子打開」</span>
+        <span class="ai">「往前衝久一點」</span><span class="ai">「慢慢前進 3 秒再右轉」</span>
+        <span class="ai">「向左轉 90 度」</span><span class="ai">「把東西夾起來舉高」</span>
+        <span class="ai">「倒車然後停兩秒再前進」</span><span>「停止」</span>
+      </div>
+      <p class="safety-note">綠色是 AI 模式才懂的說法（需在 ⚙️ 設定填入 Gemini API 金鑰）。「停止」永遠由網頁直接處理，不經過 AI。單次行駛上限可在設定調整。</p>
+    </div>
+  </section>
+
+  <!-- 手勢控制 -->
+  <section id="mode-gesture" role="tabpanel" aria-labelledby="tab-gesture" hidden>
+    <div class="card gesture-card">
+      <div class="gesture-layout">
+        <div>
+          <div class="cam-wrap">
+            <video id="camVideo" playsinline muted></video>
+            <canvas id="camCanvas"></canvas>
+            <div class="cam-placeholder" id="camPlaceholder">
+              <span id="camMessage">按下按鈕開啟鏡頭，第一次需下載手勢模型（約 10 MB）</span>
+              <button class="connect" id="camStartBtn">開啟鏡頭</button>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px;justify-content:space-between">
+            <small class="hint" style="margin:0" id="camInfo">鏡頭畫面只在這台電腦上辨識，不會上傳。</small>
+            <button class="small-btn" id="camStopBtn" hidden>關閉鏡頭</button>
+          </div>
+        </div>
+        <div>
+          <div class="gesture-now" id="gestureNow"><strong>—</strong><span>尚未偵測到手</span></div>
+          <table class="gesture-map">
+            <tr><td>☝️</td><td>食指指上</td><td>前進</td></tr>
+            <tr><td>👇</td><td>食指指下</td><td>後退</td></tr>
+            <tr><td>👈</td><td>食指指向你的左邊</td><td>左轉</td></tr>
+            <tr><td>👉</td><td>食指指向你的右邊</td><td>右轉</td></tr>
+            <tr><td>✋</td><td>張開手掌</td><td>停止</td></tr>
+            <tr><td>👍</td><td>比讚</td><td>手臂上升</td></tr>
+            <tr><td>👎</td><td>倒讚</td><td>手臂下降</td></tr>
+            <tr><td>✊</td><td>握拳</td><td>夾子夾住</td></tr>
+            <tr><td>✌️</td><td>比 YA</td><td>夾子打開</td></tr>
+          </table>
+          <p class="hint" style="margin:12px 0 0">指著的時候持續行駛，手放下或離開畫面就停。手臂動作做一次執行一次，換別的手勢後才能再觸發。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button class="emergency" id="emergencyBtn">■ 立即停止（Space）</button>
+
+  <section class="guide" data-for-transport="ble">
+    <h2>使用提醒（藍芽模式）</h2>
+    <ol>
+      <li>小車燒錄<b>藍芽版程式</b>（顯示 W2 → BLE）。右上角選「🔵 藍芽」。</li>
+      <li>開啟悟空板電源，等 micro:bit 顯示 <b>BLE</b> 後按「連接 micro:bit」。</li>
+      <li>選擇視窗中每台車都叫 <b>BBC micro:bit [五個字母]</b>，多台車時請先記下自己那台的名字。</li>
+      <li>藍牙意外中斷時，網頁會自動重新連線（最多 5 次），不需要重新選擇裝置。</li>
+    </ol>
+    <p><b>判斷斷線原因：</b>斷線後 micro:bit 若重新捲動顯示 <b>W2 → BLE</b>，代表它重開機了（多半是電池電量不足或伺服馬達卡住）；若顯示哭臉，才是單純的藍牙斷線。</p>
+    <p>請使用 Chrome 或 Edge（Windows / macOS / Android）。網頁必須以 https:// 或 localhost 開啟才能使用藍牙與鏡頭。</p>
+  </section>
+  <section class="guide" data-for-transport="radio" hidden>
+    <h2>使用提醒（無線電模式）</h2>
+    <ol>
+      <li>準備兩片 micro:bit：<b>小車</b>燒錄「無線電版小車程式」（顯示 R1），<b>橋接板</b>燒錄「橋接板程式」並用 USB 線插在電腦上。右上角選「📻 無線電」。</li>
+      <li>小車程式的 <b>RADIO_GROUP</b> 要和 ⚙️ 設定的「無線電群組」相同（預設都是 1）。多台車時每組用不同數字。</li>
+      <li>按「連接橋接板」，在視窗中選擇 <b>mbed Serial Port / BBC micro:bit CMSIS-DAP</b>（COM 幾號都可以）。</li>
+      <li>狀態列出現「小車在線 ✓」就可以開始操作。USB 被拔掉再插回時會自動重新連線。</li>
+    </ol>
+    <p><b>判斷斷線原因：</b>小車開機會顯示 <b>R1 → 群組數字</b>；之後若又看到 R1，代表它重開機了（多半是電池電量不足或伺服馬達卡住）。若顯示哭臉，代表 3 秒沒收到無線電訊號（網頁關閉、橋接板拔掉或距離太遠）。</p>
+    <p>請使用電腦版 Chrome 或 Edge。網頁必須以 https:// 或 localhost 開啟才能使用序列埠、麥克風與鏡頭。一次只能有一個程式開啟序列埠：請先關閉 MakeCode 的「顯示主控台」。</p>
+  </section>
+</main>
+
+<!-- 設定視窗 -->
+<dialog id="settingsDialog">
+  <form method="dialog" class="settings" id="settingsForm">
+    <h2>⚙️ 設定</h2>
+    <p class="note">設定只儲存在這台電腦的瀏覽器中。</p>
+
+    <h3>Gemini AI 語音解析</h3>
+    <label class="check"><input type="checkbox" id="setAiEnabled"> 使用 Gemini 解析語音指令</label>
+    <label class="field">
+      <span>Gemini API 金鑰</span>
+      <div class="row">
+        <input type="password" id="setApiKey" autocomplete="off" spellcheck="false" placeholder="貼上 API 金鑰">
+        <button type="button" class="small-btn" id="toggleKeyBtn">顯示</button>
+      </div>
+      <small>到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 建立。金鑰只存在本機瀏覽器，並直接傳給 Google，不會寫進網頁檔案。請勿在公用電腦儲存。</small>
+    </label>
+    <label class="field">
+      <span>模型</span>
+      <div class="row">
+        <select id="setModel"><option value="">自動選擇（最新的 Flash 模型）</option></select>
+        <button type="button" class="small-btn" id="loadModelsBtn">載入清單</button>
+      </div>
+    </label>
+    <div class="row">
+      <button type="button" class="small-btn" id="testAiBtn">測試「前進久一點再左轉」</button>
+      <button type="button" class="small-btn" id="clearKeyBtn">清除金鑰</button>
+    </div>
+    <div class="test-result" id="testResult"></div>
+
+    <h3>無線電（只在無線電模式使用）</h3>
+    <label class="field">
+      <span>無線電群組（0～255）</span>
+      <input type="number" id="setRadioGroup" min="0" max="255" step="1">
+      <small>必須和小車程式裡的 RADIO_GROUP 相同。儲存後會立刻通知橋接板切換。</small>
+    </label>
+
+    <h3>行駛</h3>
+    <label class="field">
+      <span>預設速度</span>
+      <div class="range-row"><input type="range" id="setSpeed" min="20" max="100" step="5"><output id="speedOut">70</output></div>
+      <small>需要 W2 版 micro:bit 程式才會生效。</small>
+    </label>
+    <div class="two-col">
+      <label class="field"><span>單次行駛上限（秒）</span><input type="number" id="setMaxSeconds" min="1" max="30" step="1"></label>
+      <label class="field"><span>每秒前進幾公分</span><input type="number" id="setCmPerSec" min="1" max="200"></label>
+      <label class="field"><span>原地轉彎每秒幾度</span><input type="number" id="setDegPerSec" min="10" max="720"></label>
+    </div>
+    <small class="note">公分與角度都是用時間估算（沒有輪速感測器），可實測後修改：讓小車前進 1 秒量距離、轉 1 秒看轉了幾度。</small>
+  </form>
+  <div class="dialog-actions">
+    <button type="button" class="connect ghost" id="cancelSettingsBtn">取消</button>
+    <button type="button" class="connect" id="saveSettingsBtn">儲存</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+
+/* ================= 連線方式 =================
+   藍芽：網頁 →（藍牙 UART）→ 小車 micro:bit
+   無線電：網頁 →（USB 序列埠）→ 橋接板 micro:bit →（無線電）→ 小車
+   兩種方式的指令完全相同，按鈕／語音／手勢只呼叫 sendCommand() 與 isConnected()。 */
+
+// 藍芽
+const UART_SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+// MakeCode micro:bit UART：003 供電腦寫入 micro:bit；002 供 micro:bit 以 indication 回覆。
+const UART_WRITE = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_NOTIFY = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+// micro:bit 程式以 advertiseUid（Eddystone）廣播，用這個服務找出小車。
+const BEACON_SERVICE = "0000feaa-0000-1000-8000-00805f9b34fb";
+const MAX_RECONNECT = 5;
+
+// 無線電（USB 序列埠）
+const MICROBIT_USB_VENDOR = 0x0d28;   // micro:bit（DAPLink）的 USB 廠商代碼
+const BAUD_RATE = 115200;
+const PING_MS = 1000;             // 每秒詢問一次小車是否在線
+const CAR_TIMEOUT_MS = 3000;      // 超過 3 秒沒有回覆就顯示「找不到小車」
+
+const DRIVE_REPEAT_MS = 150;      // 小車有 0.5 秒安全逾時，行駛時定期續送
+const DRIVE_COMMANDS = ["F", "B", "L", "R"];
+const LABELS = { F: "前進", B: "後退", L: "左轉", R: "右轉", U: "手臂上升", D: "手臂下降", C: "夾子夾住", O: "夾子打開", K: "停止" };
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* ================= 設定（存在本機瀏覽器） ================= */
+const SETTINGS_KEY = "microbit-car-combined-settings-v1";
+// 第一次開啟合併版時，沿用藍芽版／無線電版已儲存的設定（例如 Gemini 金鑰）。
+const OLD_SETTINGS_KEYS = ["microbit-car-settings-v1", "microbit-car-radio-settings-v1"];
+const DEFAULT_SETTINGS = { aiEnabled: true, apiKey: "", model: "", speed: 70, maxSeconds: 10, cmPerSec: 25, degPerSec: 180, radioGroup: 1, transport: "ble" };
+const settings = Object.assign({}, DEFAULT_SETTINGS, loadSettings());
+
+function readJson(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || null; } catch (_) { return null; }
+}
+function loadSettings() {
+  const saved = readJson(SETTINGS_KEY);
+  if (saved) return saved;
+  return Object.assign({}, ...OLD_SETTINGS_KEYS.map((key) => readJson(key) || {}));
+}
+function persistSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
+}
+const clamp = (value, min, max, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+};
+const aiReady = () => settings.aiEnabled && settings.apiKey.trim() !== "";
+
+const TRANSPORT_INFO = {
+  ble: { name: "藍芽", connectLabel: "連接 micro:bit", idle: "請先按「連接 micro:bit」" },
+  radio: { name: "無線電", connectLabel: "連接橋接板", idle: "請先把橋接板插上 USB，再按「連接橋接板」" },
+};
+let transport = settings.transport === "radio" ? "radio" : "ble";
+const info = () => TRANSPORT_INFO[transport];
+const needConnectText = () => `請先按「${info().connectLabel}」`;
+
+const ble = {
+  device: null,
+  rx: null,              // 寫入用 characteristic
+  tx: null,              // 接收回覆用 characteristic
+  wantConnected: false,  // 使用者希望保持連線（用來決定是否自動重連）
+  connecting: false,
+  reconnecting: false,   // 避免同時跑兩個自動重連流程
+  reconnectTries: 0,
+  queue: [],
+  pumping: false,
+  failures: 0,
+  replyBuffer: "",
+};
+
+const link = {
+  port: null,
+  writer: null,
+  reader: null,
+  readLoopDone: null,
+  wantConnected: false,  // 使用者希望保持連線（USB 重新插上時自動重連）
+  connecting: false,
+  bridgeOk: false,       // 收到橋接板回覆（確認燒錄的是橋接板程式）
+  lastCarReply: 0,       // 最後一次收到小車回覆的時間
+  carOnline: false,
+  pingTimer: null,
+  queue: [],
+  pumping: false,
+  failures: 0,
+  replyBuffer: "",
+};
+
+/* ================= 共用介面 ================= */
+const activeLink = () => (transport === "ble" ? ble : link);
+const bleConnected = () => !!(ble.rx && ble.device && ble.device.gatt.connected);
+const serialConnected = () => !!(link.port && link.writer);
+const isConnected = () => (transport === "ble" ? bleConnected() : serialConnected());
+const sendCommand = (command) => (transport === "ble" ? bleSend(command) : serialSend(command));
+const connectActive = () => (transport === "ble" ? bleChoose() : serialChoose());
+const disconnectActive = () => (transport === "ble" ? bleUserDisconnect() : serialUserDisconnect());
+
+function setStatus(state, text, detail) {
+  $("dot").className = "dot" + (state === "on" ? " on" : state === "busy" ? " busy" : "");
+  $("status").textContent = text;
+  if (detail !== undefined) $("detail").textContent = detail;
+  const connected = state === "on";
+  $("connectBtn").textContent = connected ? "已連線 ✓" : state === "busy" ? "連線中…" : info().connectLabel;
+  $("connectBtn").disabled = connected || state === "busy" || switchingTransport;
+  $("disconnectBtn").hidden = !(connected || activeLink().wantConnected);
+}
+
+/* ================= 切換連線方式（右上角） ================= */
+let switchingTransport = false;
+
+function applyTransportUi() {
+  document.querySelectorAll("[data-transport]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.transport === transport));
+  });
+  document.querySelectorAll("[data-for-transport]").forEach((el) => {
+    el.hidden = el.dataset.forTransport !== transport;
+  });
+  document.title = `小車${info().name}遙控器`;
+}
+
+async function switchTransport(next) {
+  if (next === transport || switchingTransport || !TRANSPORT_INFO[next]) return;
+  switchingTransport = true;
+  document.querySelectorAll("[data-transport]").forEach((btn) => { btn.disabled = true; });
+  try {
+    const old = activeLink();
+    if (old.wantConnected || old.connecting || isConnected()) {
+      setStatus("busy", `正在中斷${info().name}連線…`, "小車會先停下來");
+      await disconnectActive();
+    }
+    transport = next;
+    settings.transport = next;
+    persistSettings();
+    applyTransportUi();
+    showIdleStatus();
+  } finally {
+    switchingTransport = false;
+    document.querySelectorAll("[data-transport]").forEach((btn) => { btn.disabled = false; });
+    setStatus(isConnected() ? "on" : "off", $("status").textContent);
+  }
+}
+
+function showIdleStatus() {
+  const supported = transport === "ble" ? "bluetooth" in navigator : "serial" in navigator;
+  if (!supported) connectActive();   // 只會顯示「此瀏覽器不支援」的說明
+  else setStatus("off", `尚未連線（${info().name}模式）`, info().idle);
+}
+
+/* ================= 藍芽：連線 / 斷線 / 自動重連 ================= */
+async function bleChoose() {
+  if (!("bluetooth" in navigator)) {
+    setStatus("off", "此瀏覽器無法使用藍牙",
+      window.isSecureContext ? "請改用最新版 Chrome 或 Edge，並確認電腦藍牙已開啟"
+                             : "網頁必須用 https:// 或 localhost 開啟（目前網址不支援藍牙）");
+    return;
+  }
+  if (ble.connecting || bleConnected()) return;
+  try {
+    setStatus("busy", "請在視窗中選擇 micro:bit…", "");
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [BEACON_SERVICE] }],
+      optionalServices: [UART_SERVICE],
+    });
+    if (ble.device && ble.device !== device) {
+      ble.device.removeEventListener("gattserverdisconnected", onBleDisconnected);
+      try { ble.device.gatt.disconnect(); } catch (_) {}
+    }
+    if (ble.device !== device) device.addEventListener("gattserverdisconnected", onBleDisconnected);
+    ble.device = device;
+    ble.wantConnected = true;
+    ble.reconnectTries = 0;
+    await openGatt();
+  } catch (error) {
+    ble.connecting = false;
+    if (transport !== "ble") return;
+    if (error && error.name === "NotFoundError") {
+      setStatus("off", "尚未選擇小車", "若清單是空的：確認 micro:bit 顯示 BLE、燒錄的是藍芽版程式，並關閉其他已連線的網頁");
+    } else {
+      ble.wantConnected = false;
+      setStatus("off", "連線失敗", (error && error.message) || "請將小車重新開機後再試");
+    }
+  }
+}
+
+async function openGatt() {
+  ble.connecting = true;
+  setStatus("busy", `正在連線：${ble.device.name || "micro:bit"}`);
+  try {
+    const server = await ble.device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    const rx = await service.getCharacteristic(UART_WRITE);
+    const tx = await service.getCharacteristic(UART_NOTIFY);
+    if (ble.tx) ble.tx.removeEventListener("characteristicvaluechanged", onBleReply);
+    tx.addEventListener("characteristicvaluechanged", onBleReply);
+    await tx.startNotifications();
+    // 連線途中使用者切換成無線電模式 → 放棄這次連線
+    if (!ble.wantConnected || transport !== "ble") { ble.device.gatt.disconnect(); return; }
+    ble.rx = rx;
+    ble.tx = tx;
+    ble.queue = [];
+    ble.failures = 0;
+    ble.replyBuffer = "";
+    ble.reconnectTries = 0;
+    setStatus("on", `已連線（藍芽）：${ble.device.name || "micro:bit"}`, "可以開始操作");
+    bleSend("K");
+    bleSend("V" + settings.speed);
+  } finally {
+    ble.connecting = false;
+  }
+}
+
+function onBleDisconnected() {
+  ble.rx = null;
+  ble.queue = [];
+  if (transport !== "ble") return;   // 已切換到無線電模式，不更新畫面
+  stopAllMotion(false);
+  if (ble.wantConnected) scheduleReconnect();
+  else setStatus("off", "已中斷連線", "小車已停止");
+}
+
+async function scheduleReconnect() {
+  if (ble.connecting || ble.reconnecting) return;
+  ble.reconnecting = true;
+  try { await reconnectLoop(); } finally { ble.reconnecting = false; }
+}
+
+async function reconnectLoop() {
+  while (ble.wantConnected && transport === "ble" && ble.reconnectTries < MAX_RECONNECT && !bleConnected()) {
+    ble.reconnectTries++;
+    setStatus("busy", `藍牙中斷，自動重新連線中（第 ${ble.reconnectTries}/${MAX_RECONNECT} 次）…`,
+      "小車已自動停止；若 micro:bit 重新顯示 W2，代表它重開機了（檢查電池）");
+    await sleep(800 * ble.reconnectTries);
+    if (!ble.wantConnected || transport !== "ble") return;
+    try { await openGatt(); return; }
+    catch (_) { try { ble.device.gatt.disconnect(); } catch (__) {} }
+  }
+  if (ble.wantConnected && transport === "ble" && !bleConnected()) {
+    ble.wantConnected = false;
+    setStatus("off", "自動重連失敗", "請確認小車電源與距離，再按「連接 micro:bit」");
+  }
+}
+
+async function bleUserDisconnect() {
+  ble.wantConnected = false;
+  stopAllMotion(true);
+  await sleep(120);                   // 讓停止指令先送出
+  ble.rx = null;
+  ble.queue = [];
+  if (ble.device && ble.device.gatt.connected) ble.device.gatt.disconnect();
+  setStatus("off", "已中斷連線", "小車已停止");
+}
+
+function onBleReply(event) {
+  const value = event.target.value;
+  if (!value) return;
+  ble.replyBuffer += new TextDecoder().decode(value);
+  let index;
+  while ((index = ble.replyBuffer.indexOf("\n")) >= 0) {
+    const line = ble.replyBuffer.slice(0, index).trim();
+    ble.replyBuffer = ble.replyBuffer.slice(index + 1);
+    if (line.startsWith("ACK:") && transport === "ble") $("detail").textContent = `micro:bit 已收到指令 ${line.slice(4)}`;
+  }
+  if (ble.replyBuffer.length > 200) ble.replyBuffer = "";
+}
+
+/* 藍芽指令佇列：同一時間只寫入一個指令，避免 "GATT operation already in progress"。
+   重複的行駛指令會合併；停止指令會取代排隊中的行駛指令。
+   單次寫入失敗不會被當成斷線，只有收到真正的斷線事件才算斷線。 */
+function bleSend(command) {
+  if (!ble.rx) return false;
+  if (command === "K") ble.queue = ble.queue.filter((c) => !DRIVE_COMMANDS.includes(c));
+  if (ble.queue[ble.queue.length - 1] !== command) ble.queue.push(command);
+  if (ble.queue.length > 6) ble.queue.splice(0, ble.queue.length - 6);
+  if (!ble.pumping) blePump();
+  return true;
+}
+
+async function blePump() {
+  ble.pumping = true;
+  while (ble.queue.length && ble.rx) {
+    const command = ble.queue.shift();
+    try {
+      const data = new TextEncoder().encode(command + "\n");
+      if (ble.rx.properties.writeWithoutResponse) await ble.rx.writeValueWithoutResponse(data);
+      else await ble.rx.writeValueWithResponse(data);
+      ble.failures = 0;
+    } catch (_) {
+      if (!ble.device || !ble.device.gatt.connected) break;   // 真的斷線交給 onBleDisconnected
+      ble.failures++;
+      if (ble.failures >= 5) $("detail").textContent = "訊號不穩，指令傳送多次失敗；請靠近小車";
+      // 停止指令很重要，失敗時重試
+      if (command === "K" && ble.failures < 5 && !ble.queue.includes("K")) ble.queue.unshift("K");
+      await sleep(40);
+    }
+  }
+  ble.pumping = false;
+}
+
+/* ================= 無線電：連線 / 斷線 / 自動重連 ================= */
+function refreshLinkStatus() {
+  if (transport !== "radio" || !serialConnected()) return;
+  const group = `群組 ${settings.radioGroup}`;
+  if (!link.bridgeOk) setStatus("on", `已開啟序列埠 · ${group}`, "尚未收到橋接板回覆：請確認插的是燒錄「橋接板程式」的 micro:bit");
+  else if (link.carOnline) setStatus("on", `已連線（無線電）· 小車在線 ✓ · ${group}`, "可以開始操作");
+  else setStatus("on", `橋接板已連線 · ${group} · 找不到小車`, `請確認小車電源已開、燒錄的是無線電版程式，且 RADIO_GROUP 也是 ${settings.radioGroup}`);
+}
+
+async function serialChoose() {
+  if (!("serial" in navigator)) {
+    setStatus("off", "此瀏覽器無法使用 USB 序列埠",
+      window.isSecureContext ? "無線電模式需要電腦版最新 Chrome 或 Edge（手機、Safari、Firefox 不支援），可改用右上角的藍芽模式"
+                             : "網頁必須用 https:// 或 localhost 開啟（目前網址不支援序列埠）");
+    return;
+  }
+  if (link.connecting || serialConnected()) return;
+  try {
+    setStatus("busy", "請在視窗中選擇橋接板 micro:bit…", "");
+    const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: MICROBIT_USB_VENDOR }] });
+    link.port = port;
+    link.wantConnected = true;
+    await openPort();
+  } catch (error) {
+    link.connecting = false;
+    if (transport !== "radio") return;
+    if (error && error.name === "NotFoundError") {
+      setStatus("off", "尚未選擇橋接板", "若清單是空的：確認 micro:bit 已用 USB 線（要能傳資料的線）插在電腦上");
+    } else {
+      link.wantConnected = false;
+      setStatus("off", "連線失敗", friendlyOpenError(error));
+    }
+  }
+}
+
+function friendlyOpenError(error) {
+  const msg = (error && error.message) || "";
+  if (error && (error.name === "InvalidStateError" || /already open/i.test(msg))) return "序列埠已被開啟，請重新整理網頁再試";
+  if (error && (error.name === "NetworkError" || /Failed to open/i.test(msg)))
+    return "序列埠被其他程式佔用：請關閉 MakeCode 的「顯示主控台」、其他分頁或序列埠監控程式";
+  return msg || "請拔掉 USB 再插上後重試";
+}
+
+async function openPort() {
+  link.connecting = true;
+  setStatus("busy", "正在開啟序列埠…");
+  try {
+    await link.port.open({ baudRate: BAUD_RATE });
+    link.writer = link.port.writable.getWriter();
+    link.queue = [];
+    link.failures = 0;
+    link.replyBuffer = "";
+    link.bridgeOk = false;
+    link.carOnline = false;
+    link.lastCarReply = 0;
+    link.readLoopDone = readLoop(link.port);
+    refreshLinkStatus();
+    sendRaw("");                      // 空行：清掉 micro:bit 可能殘留的半行資料
+    sendRaw("HELLO");
+    sendRaw("G" + settings.radioGroup);
+    serialSend("K");
+    serialSend("V" + settings.speed);
+    clearInterval(link.pingTimer);
+    link.pingTimer = setInterval(pingCar, PING_MS);
+  } catch (error) {
+    try { if (link.writer) link.writer.releaseLock(); } catch (_) {}
+    link.writer = null;
+    throw error;
+  } finally {
+    link.connecting = false;
+  }
+}
+
+async function readLoop(port) {
+  const decoder = new TextDecoder();
+  while (port.readable && link.port === port && link.writer) {
+    const reader = port.readable.getReader();
+    link.reader = reader;
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) onSerialReply(decoder.decode(value, { stream: true }));
+      }
+    } catch (_) {
+      // 讀取錯誤（例如 USB 被拔掉）：交給 disconnect 事件處理
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+      link.reader = null;
+    }
+  }
+}
+
+function pingCar() {
+  if (!serialConnected()) return;
+  serialSend("P");
+  const online = link.lastCarReply > 0 && performance.now() - link.lastCarReply < CAR_TIMEOUT_MS;
+  if (online !== link.carOnline) { link.carOnline = online; refreshLinkStatus(); }
+}
+
+async function closePort() {
+  clearInterval(link.pingTimer);
+  link.pingTimer = null;
+  const port = link.port;
+  const writer = link.writer;
+  link.writer = null;
+  link.queue = [];
+  if (link.reader) { try { await link.reader.cancel(); } catch (_) {} }
+  if (link.readLoopDone) { try { await link.readLoopDone; } catch (_) {} }
+  link.readLoopDone = null;
+  if (writer) { try { writer.releaseLock(); } catch (_) {} }
+  if (port) { try { await port.close(); } catch (_) {} }
+  link.bridgeOk = false;
+  link.carOnline = false;
+}
+
+// USB 被拔掉
+async function onUsbDisconnected(event) {
+  if (!link.port || event.target !== link.port) return;
+  if (transport === "radio") stopAllMotion(false);
+  await closePort();
+  if (transport !== "radio") return;
+  if (link.wantConnected) setStatus("busy", "橋接板 USB 已拔除，重新插上會自動連線…", "小車會在 0.5 秒內自動停止");
+  else setStatus("off", "已中斷連線", "小車已停止");
+}
+
+// 同一片 micro:bit 重新插上（之前已授權過）→ 自動重連
+async function onUsbConnected(event) {
+  if (transport !== "radio" || !link.wantConnected || serialConnected() || link.connecting) return;
+  if (link.port && event.target !== link.port) return;
+  link.port = event.target;
+  await sleep(1000);   // 等 micro:bit 開機
+  if (transport !== "radio" || !link.wantConnected || serialConnected() || link.connecting) return;
+  try { await openPort(); }
+  catch (error) { setStatus("off", "自動重連失敗", friendlyOpenError(error)); }
+}
+
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", onUsbDisconnected);
+  navigator.serial.addEventListener("connect", onUsbConnected);
+}
+
+async function serialUserDisconnect() {
+  link.wantConnected = false;
+  stopAllMotion(true);
+  await sleep(150);                   // 讓停止指令先送出
+  await closePort();
+  setStatus("off", "已中斷連線", "小車已停止");
+}
+
+function onSerialReply(text) {
+  link.replyBuffer += text;
+  let index;
+  while ((index = link.replyBuffer.indexOf("\n")) >= 0) {
+    const line = link.replyBuffer.slice(0, index).trim();
+    link.replyBuffer = link.replyBuffer.slice(index + 1);
+    if (!line) continue;
+    if (line.startsWith("BRIDGE:") || line.startsWith("GROUP:")) {
+      link.bridgeOk = true;
+      refreshLinkStatus();
+    } else if (line === "PONG" || line.startsWith("ACK:")) {
+      link.bridgeOk = true;
+      link.lastCarReply = performance.now();
+      if (!link.carOnline) { link.carOnline = true; refreshLinkStatus(); }
+      if (line.startsWith("ACK:") && transport === "radio") $("detail").textContent = `小車已收到指令 ${line.slice(4)}`;
+    }
+  }
+  if (link.replyBuffer.length > 200) link.replyBuffer = "";
+}
+
+/* 無線電指令佇列：同一時間只寫入一個指令。重複的行駛指令會合併；停止指令會取代排隊中的行駛指令。
+   P 詢問小車是否在線；G數字、HELLO 只給橋接板，不會轉送給小車。 */
+function serialSend(command) {
+  if (!serialConnected()) return false;
+  if (command === "K") link.queue = link.queue.filter((c) => !DRIVE_COMMANDS.includes(c));
+  if (link.queue[link.queue.length - 1] !== command) link.queue.push(command);
+  if (link.queue.length > 8) link.queue.splice(0, link.queue.length - 8);
+  if (!link.pumping) serialPump();
+  return true;
+}
+
+// 不合併、不丟棄（給橋接板的設定指令）
+function sendRaw(line) {
+  if (!serialConnected()) return false;
+  link.queue.push(line);
+  if (!link.pumping) serialPump();
+  return true;
+}
+
+async function serialPump() {
+  link.pumping = true;
+  const encoder = new TextEncoder();
+  while (link.queue.length && link.writer) {
+    const command = link.queue.shift();
+    try {
+      await link.writer.write(encoder.encode(command + "\n"));
+      link.failures = 0;
+    } catch (_) {
+      if (!link.writer) break;
+      link.failures++;
+      if (link.failures >= 5) { $("detail").textContent = "指令傳送多次失敗；請檢查 USB 線"; break; }
+      await sleep(40);
+    }
+  }
+  link.pumping = false;
+}
+
+/* ================= 按住行駛（按鈕與手勢共用） ================= */
+let driveTimer = null;
+let activeDrive = null;
+
+function markActive(command) {
+  document.querySelectorAll(".control").forEach((el) => {
+    el.classList.toggle("active", (el.dataset.drive || el.dataset.arm) === command);
+  });
+}
+
+function beginDrive(command) {
+  if (!isConnected()) { $("detail").textContent = needConnectText(); return; }
+  cancelSequence();
+  clearInterval(driveTimer);
+  activeDrive = command;
+  sendCommand(command);
+  driveTimer = setInterval(() => sendCommand(command), DRIVE_REPEAT_MS);
+  markActive(command);
+}
+
+function endDrive() {
+  if (activeDrive === null && driveTimer === null) return;
+  clearInterval(driveTimer);
+  driveTimer = null;
+  activeDrive = null;
+  sendCommand("K");
+  markActive(null);
+}
+
+function pressArm(command) {
+  if (!isConnected()) { $("detail").textContent = needConnectText(); return; }
+  sendCommand(command);
+  markActive(command);
+  setTimeout(() => markActive(activeDrive), 180);
+}
+
+document.querySelectorAll("[data-drive]").forEach((el) => {
+  el.addEventListener("pointerdown", (event) => { event.preventDefault(); beginDrive(el.dataset.drive); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((type) => el.addEventListener(type, endDrive));
+  el.addEventListener("contextmenu", (event) => event.preventDefault());
+});
+document.querySelectorAll("[data-arm]").forEach((el) => {
+  el.addEventListener("pointerdown", (event) => { event.preventDefault(); pressArm(el.dataset.arm); });
+});
+
+const KEY_DRIVE = { w: "F", arrowup: "F", s: "B", arrowdown: "B", a: "L", arrowleft: "L", d: "R", arrowright: "R" };
+const KEY_ARM = { i: "U", k: "D", j: "C", l: "O" };
+
+window.addEventListener("keydown", (event) => {
+  if ($("settingsDialog").open) return;
+  if (event.target instanceof Element && event.target.closest("input, textarea, select")) return;
+  const key = event.key.toLowerCase();
+  if (key === " ") { event.preventDefault(); emergencyStop(); return; }
+  if (currentMode !== "buttons") return;
+  if (KEY_DRIVE[key]) { event.preventDefault(); if (!event.repeat) beginDrive(KEY_DRIVE[key]); }
+  else if (KEY_ARM[key] && !event.repeat) { event.preventDefault(); pressArm(KEY_ARM[key]); }
+});
+window.addEventListener("keyup", (event) => {
+  if (currentMode === "buttons" && KEY_DRIVE[event.key.toLowerCase()] === activeDrive) endDrive();
+});
+
+/* ================= 動作序列（語音使用） =================
+   每個動作：{ command, seconds?, speed? }。行駛動作會持續續送指令直到時間到。
+   K 搭配 seconds 代表「停下來等待幾秒」。 */
+let seqToken = 0;
+let seqTimer = null;
+
+function setHeard(text) { $("heard").textContent = text; }
+function setMoving(text) {
+  $("movement").textContent = text ? `🚗 ${text}` : "● 安全待命中";
+  $("movement").classList.toggle("moving", !!text);
+}
+const fmtSec = (s) => (Math.round(s * 10) / 10).toString();
+
+function cancelSequence() {
+  seqToken++;
+  clearInterval(seqTimer);
+  seqTimer = null;
+  setMoving(null);
+}
+
+function describeActions(actions) {
+  return actions.map((a) => {
+    if (DRIVE_COMMANDS.includes(a.command)) return `${LABELS[a.command]} ${fmtSec(a.seconds)} 秒${a.speed != null ? `（速度 ${a.speed}）` : ""}`;
+    if (a.command === "K") return a.seconds ? `停 ${fmtSec(a.seconds)} 秒` : "停止";
+    return LABELS[a.command];
+  }).join(" → ");
+}
+
+async function runSequence(actions) {
+  cancelSequence();
+  const token = seqToken;
+  const total = actions.length;
+  for (let i = 0; i < total; i++) {
+    if (token !== seqToken) return;
+    if (!isConnected()) { setHeard("連線中斷，已中止"); return; }
+    const a = actions[i];
+    const step = total > 1 ? `（${i + 1}/${total}）` : "";
+    if (DRIVE_COMMANDS.includes(a.command)) {
+      const speed = a.speed != null ? a.speed : settings.speed;
+      sendCommand("V" + speed);
+      setMoving(`${LABELS[a.command]}中 · ${fmtSec(a.seconds)} 秒${a.speed != null ? ` · 速度 ${speed}` : ""}${step}`);
+      sendCommand(a.command);
+      seqTimer = setInterval(() => sendCommand(a.command), DRIVE_REPEAT_MS);
+      await sleep(a.seconds * 1000);
+      clearInterval(seqTimer);
+      seqTimer = null;
+      if (token !== seqToken) return;
+      sendCommand("K");
+      if (speed !== settings.speed) sendCommand("V" + settings.speed);
+      await sleep(250);
+    } else if (a.command === "K") {
+      sendCommand("K");
+      if (a.seconds) { setMoving(`等待 ${fmtSec(a.seconds)} 秒${step}`); await sleep(a.seconds * 1000); }
+    } else {
+      sendCommand(a.command);
+      setMoving(`${LABELS[a.command]}${step}`);
+      await sleep(700);   // 等伺服轉到定位
+    }
+  }
+  if (token === seqToken) { setMoving(null); setHeard(`完成：${describeActions(actions)}`); }
+}
+
+/* ================= 內建規則解析（沒有 AI 時使用） ================= */
+const directions = [
+  { words: ["前進", "往前", "向前"], command: "F" },
+  { words: ["後退", "倒退", "往後", "向後", "倒車"], command: "B" },
+  { words: ["左轉", "向左", "往左"], command: "L" },
+  { words: ["右轉", "向右", "往右"], command: "R" },
+];
+const chineseDigits = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+
+function parseChineseNumber(value) {
+  const cleaned = value.replace(/\s/g, "");
+  if (/^\d+(?:\.\d+)?$/.test(cleaned)) return Number(cleaned);
+  if (cleaned === "半") return 0.5;
+  if (cleaned.includes("點")) {
+    const [whole, decimal = ""] = cleaned.split("點");
+    const wholeNumber = parseChineseNumber(whole || "零");
+    const digits = [...decimal].map((d) => chineseDigits[d]);
+    if (wholeNumber === null || digits.some((d) => d === undefined)) return null;
+    return Number(`${wholeNumber}.${digits.join("")}`);
+  }
+  let total = 0, current = 0;
+  for (const ch of cleaned) {
+    if (ch in chineseDigits) current = chineseDigits[ch];
+    else if (ch === "十") { total += (current || 1) * 10; current = 0; }
+    else if (ch === "百") { total += (current || 1) * 100; current = 0; }
+    else return null;
+  }
+  return total + current;
+}
+
+function readAmount(text, unitPattern) {
+  const match = text.match(new RegExp(`([0-9]+(?:\\.[0-9]+)?|[零〇一二兩三四五六七八九十百點半]+)\\s*(?:${unitPattern})`));
+  return match ? parseChineseNumber(match[1]) : null;
+}
+
+function localParse(text) {
+  const has = (words) => words.some((w) => text.includes(w));
+  if (has(["夾子打開", "夾爪打開", "打開夾子", "打開夾爪", "放開"])) return [{ command: "O" }];
+  if (has(["夾住", "夾緊", "夾起來", "合起來", "抓住"])) return [{ command: "C" }];
+  if (has(["手臂上升", "手臂升起", "升起手臂", "手臂往上", "舉高"])) return [{ command: "U" }];
+  if (has(["手臂下降", "手臂放下", "放下手臂", "手臂往下"])) return [{ command: "D" }];
+  const direction = directions.find((d) => has(d.words));
+  if (!direction) return null;
+  let seconds = 1;
+  const ms = readAmount(text, "毫秒");
+  const s = readAmount(text, "秒鐘?|秒");
+  const cm = readAmount(text, "公分|厘米");
+  const m = readAmount(text, "公尺|米");
+  const deg = readAmount(text, "度");
+  if (ms !== null) seconds = ms / 1000;
+  else if (s !== null) seconds = s;
+  else if (cm !== null) seconds = cm / settings.cmPerSec;
+  else if (m !== null) seconds = m * 100 / settings.cmPerSec;
+  else if (deg !== null && (direction.command === "L" || direction.command === "R")) seconds = deg / settings.degPerSec;
+  return [{ command: direction.command, seconds }];
+}
+
+/* ================= Gemini AI 解析 ================= */
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+let autoModel = "";
+
+function buildSystemPrompt() {
+  return `你是 micro:bit 遙控小車的指令解析器。使用者會用中文（可能是口語、辨識錯字或同音字）下指令，請轉成動作清單。
+可用動作 command：
+F 前進、B 後退、L 原地左轉、R 原地右轉（這四個需要 seconds，可選 speed）
+U 手臂上升、D 手臂下降、C 夾子夾住、O 夾子打開（不需要 seconds）
+K 停止；若要「停下來等幾秒」，用 K 並給 seconds。
+規則：
+- 沒說時間的行駛預設 1 秒；「一下、一點點、稍微」約 0.5 秒；「久一點、多一點」約 3 秒；「很久、很多秒、一直、衝」約 6 秒。
+- 使用者說的秒數照實給；單一行駛最多 ${settings.maxSeconds} 秒，超過就用 ${settings.maxSeconds}。
+- 距離換算：小車每秒約前進 ${settings.cmPerSec} 公分。角度換算：原地轉彎每秒約 ${settings.degPerSec} 度（例如轉 90 度約 ${fmtSec(90 / settings.degPerSec)} 秒，迴轉/掉頭是 180 度，轉一圈是 360 度）。
+- 速度 speed 為 20～100 的整數，只有使用者提到快慢時才給：慢慢/慢速約 40、普通不用給、快一點約 85、全速/最快 100。
+- 「夾起來/抓東西」= C；「放下東西/鬆開」= O；「舉高/抬起來」= U；「放低」= D。「把東西夾起來舉高」= C 然後 U。
+- 依照說話順序輸出，最多 8 個動作。
+- 若不是控制小車的指令或無法理解，actions 給空陣列，reply 簡短說明。
+只輸出 JSON，格式：{"actions":[{"command":"F","seconds":1,"speed":40}],"reply":"給使用者看的一句簡短中文說明"}`;
+}
+
+async function listModels() {
+  const res = await fetch(`${GEMINI_BASE}/models?pageSize=200`, { headers: { "x-goog-api-key": settings.apiKey.trim() } });
+  if (!res.ok) throw new Error(await geminiError(res));
+  const data = await res.json();
+  return (data.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map((m) => m.name.replace(/^models\//, ""))
+    .filter((name) => name.startsWith("gemini") && !/(image|tts|audio|live|embedding|vision|robotics|computer)/.test(name));
+}
+
+// 自動挑選：非預覽版中版本最新的 flash-lite，其次 flash。
+function pickModel(names) {
+  const version = (n) => { const m = n.match(/gemini-(\d+(?:\.\d+)?)/); return m ? Number(m[1]) : 0; };
+  const stable = (n) => !/(preview|exp)/.test(n);
+  const byNewest = (a, b) => version(b) - version(a) || a.length - b.length;
+  for (const test of [(n) => /flash-lite/.test(n) && stable(n), (n) => /flash/.test(n) && stable(n), (n) => /flash/.test(n)]) {
+    const found = names.filter(test).sort(byNewest);
+    if (found.length) return found[0];
+  }
+  return names[0] || "";
+}
+
+async function resolveModel() {
+  if (settings.model) return settings.model;
+  if (!autoModel) {
+    autoModel = pickModel(await listModels());
+    if (!autoModel) throw new Error("這個金鑰找不到可用的 Gemini 模型");
+    updateAiChip();
+  }
+  return autoModel;
+}
+
+async function geminiError(res) {
+  let message = "";
+  try { message = (await res.json()).error.message; } catch (_) {}
+  if (res.status === 400 && /API key/i.test(message)) return "API 金鑰無效，請到設定檢查";
+  if (res.status === 403) return "API 金鑰沒有權限（403）";
+  if (res.status === 404) return "找不到這個模型，請到設定改用「自動選擇」";
+  if (res.status === 429) return "Gemini 使用量已達上限，請稍後再試（429）";
+  return `Gemini 錯誤 ${res.status}${message ? "：" + message : ""}`;
+}
+
+function sanitizeActions(raw) {
+  if (!raw || !Array.isArray(raw.actions)) throw new Error("AI 回覆格式不正確");
+  const actions = [];
+  for (const item of raw.actions.slice(0, 8)) {
+    const command = String(item.command || "").trim().toUpperCase();
+    if (!LABELS[command]) continue;
+    const action = { command };
+    if (DRIVE_COMMANDS.includes(command)) {
+      action.seconds = clamp(item.seconds, 0.2, settings.maxSeconds, 1);
+      if (item.speed != null) action.speed = Math.round(clamp(item.speed, 20, 100, settings.speed));
+    } else if (command === "K" && item.seconds) {
+      action.seconds = clamp(item.seconds, 0, 10, 0);
+    }
+    actions.push(action);
+  }
+  return { actions, reply: typeof raw.reply === "string" ? raw.reply : "" };
+}
+
+async function askGemini(text) {
+  const model = await resolveModel();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const res = await fetch(`${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": settings.apiKey.trim() },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
+        contents: [{ role: "user", parts: [{ text }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0 },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(await geminiError(res));
+    const data = await res.json();
+    const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
+    const output = parts.map((p) => p.text || "").join("").replace(/^```(?:json)?|```$/g, "").trim();
+    return sanitizeActions(JSON.parse(output));
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("Gemini 回應逾時");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ================= 語音模式 ================= */
+let recognition = null;
+const STOP_WORDS = ["停止", "停車", "煞車", "停下來", "不要動", "停"];
+
+async function executeSpeech(spoken) {
+  const text = spoken.replace(/[，。！？,.!?\s]/g, "");
+  setHeard(`聽到：「${spoken.trim()}」`);
+
+  // 停止永遠在本機立即處理，不等 AI。
+  if (STOP_WORDS.some((w) => text === w || (w.length > 1 && text.includes(w)))) {
+    cancelSequence();
+    sendCommand("K");
+    setHeard("已停止");
+    return;
+  }
+
+  if (aiReady()) {
+    const token = seqToken;
+    setHeard(`聽到：「${spoken.trim()}」 · AI 解析中…`);
+    try {
+      const result = await askGemini(spoken.trim());
+      if (token !== seqToken) return;          // 解析期間使用者按了停止
+      if (!result.actions.length) { setHeard(`🤖 ${result.reply || "聽不懂這個指令，請再說一次"}`); return; }
+      setHeard(`🤖 ${result.reply || describeActions(result.actions)}`);
+      runSequence(result.actions);
+      return;
+    } catch (error) {
+      if (token !== seqToken) return;
+      const fallback = localParse(text);
+      if (fallback) {
+        setHeard(`AI 無法使用（${error.message}），改用內建規則：${describeActions(fallback)}`);
+        runSequence(fallback);
+      } else {
+        setHeard(`AI 無法使用（${error.message}），內建規則也聽不懂「${spoken.trim()}」`);
+      }
+      return;
+    }
+  }
+
+  const actions = localParse(text);
+  if (!actions) { setHeard(`無法辨識「${spoken.trim()}」，請參考下方說法，或在 ⚙️ 設定開啟 AI`); return; }
+  actions.forEach((a) => { if (a.seconds != null) a.seconds = clamp(a.seconds, 0.2, settings.maxSeconds, 1); });
+  setHeard(`執行：${describeActions(actions)}`);
+  runSequence(actions);
+}
+
+function setListening(on) {
+  $("voiceBtn").classList.toggle("listening", on);
+  $("voiceBtn").disabled = on;
+  $("voiceLabel").textContent = on ? "正在聆聽…" : "按一下說話";
+}
+
+function listenOnce() {
+  if (!isConnected()) { setHeard(needConnectText()); return; }
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) { setHeard("此瀏覽器不支援語音辨識，請改用最新版 Chrome 或 Edge"); return; }
+  if (recognition) recognition.abort();
+  const instance = new Recognition();
+  recognition = instance;
+  instance.lang = "zh-TW";
+  instance.continuous = false;
+  instance.interimResults = false;
+  instance.maxAlternatives = 1;
+  instance.onresult = (event) => {
+    const result = event.results[event.resultIndex];
+    if (result && result.isFinal) executeSpeech(result[0].transcript);
+  };
+  instance.onerror = (event) => {
+    setListening(false);
+    if (event.error === "aborted") return;
+    setHeard(event.error === "not-allowed" ? "請允許瀏覽器使用麥克風後再試"
+      : event.error === "network" ? "語音辨識需要網路連線，請確認電腦可以上網"
+      : "沒有聽清楚，請靠近麥克風再說一次");
+  };
+  instance.onend = () => setListening(false);
+  try {
+    setListening(true);
+    setHeard(aiReady() ? "正在聽…可以用自然的說法，例如「慢慢前進 3 秒再右轉」" : "正在聽…例如說「前進 1 秒」");
+    instance.start();
+  } catch (_) {
+    setListening(false);
+    setHeard("語音辨識正在啟動，請稍後再按一次");
+  }
+}
+$("voiceBtn").addEventListener("click", listenOnce);
+
+function updateAiChip() {
+  const chip = $("aiChip");
+  chip.classList.toggle("on", aiReady());
+  chip.textContent = aiReady()
+    ? `🤖 AI 解析已開啟 · ${settings.model || autoModel || "自動選擇模型"}`
+    : settings.apiKey ? "AI 已關閉 · 使用內建規則" : "AI 未設定 · 使用內建規則（按此設定）";
+}
+$("aiChip").addEventListener("click", openSettings);
+
+/* ================= 手勢模式（MediaPipe Gesture Recognizer） ================= */
+const MEDIAPIPE_VERSION = "1.0.1";
+const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
+const GESTURE_MODEL = "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
+const GESTURE_STABLE_FRAMES = 4;   // 連續幾張畫面相同才算數，避免誤觸
+const GESTURE_INFO = {
+  F: ["☝️", "前進", "drive"], B: ["👇", "後退", "drive"], L: ["👈", "左轉", "drive"], R: ["👉", "右轉", "drive"],
+  K: ["✋", "停止", ""], U: ["👍", "手臂上升", "arm"], D: ["👎", "手臂下降", "arm"],
+  C: ["✊", "夾子夾住", "arm"], O: ["✌️", "夾子打開", "arm"],
+};
+const CATEGORY_TO_COMMAND = { Open_Palm: "K", Thumb_Up: "U", Thumb_Down: "D", Closed_Fist: "C", Victory: "O" };
+const HAND_LINKS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+const MODEL_TIMEOUT_MS = 60000;    // 手勢模型下載上限
+const CAMERA_TIMEOUT_MS = 15000;   // 鏡頭開啟上限（含按「允許」的時間）
+const FRAME_STALL_MS = 600;        // 鏡頭畫面超過這個時間沒更新 → 視為鏡頭故障，立即停車
+
+const gesture = { recognizer: null, loading: false, stream: null, raf: 0, lastVideoTime: -1, candidate: "none", count: 0, current: "none", lastFrameAt: 0, stalled: false };
+const CAM_INFO_TEXT = "鏡頭畫面只在這台電腦上辨識，不會上傳。";
+
+// 鏡頭或網路故障時，有些瀏覽器的 Promise 會一直等不到結果；加上逾時避免按鈕永遠卡住。
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function releaseStream(stream) {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+}
+
+async function createRecognizer() {
+  const vision = await import(`${MEDIAPIPE_BASE}/vision_bundle.mjs`);
+  const fileset = await vision.FilesetResolver.forVisionTasks(`${MEDIAPIPE_BASE}/wasm`);
+  const options = (delegate) => ({ baseOptions: { modelAssetPath: GESTURE_MODEL, delegate }, runningMode: "VIDEO", numHands: 1 });
+  try { return await vision.GestureRecognizer.createFromOptions(fileset, options("GPU")); }
+  catch (_) { return await vision.GestureRecognizer.createFromOptions(fileset, options("CPU")); }
+}
+
+async function startCamera() {
+  if (gesture.stream || gesture.loading) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $("camMessage").textContent = "無法使用鏡頭：請用 Chrome／Edge，並以 https:// 或 localhost 開啟";
+    return;
+  }
+  gesture.loading = true;
+  $("camStartBtn").disabled = true;
+  try {
+    if (!gesture.recognizer) {
+      $("camMessage").textContent = "正在下載手勢模型…";
+      gesture.recognizer = await withTimeout(createRecognizer(), MODEL_TIMEOUT_MS, "手勢模型下載逾時，請確認網路後再試");
+    }
+    $("camMessage").textContent = "正在開啟鏡頭…（請允許使用鏡頭）";
+    const request = navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+    let stream;
+    try {
+      stream = await withTimeout(request, CAMERA_TIMEOUT_MS, "鏡頭沒有回應（可能故障、被其他程式佔用，或還沒按「允許」）");
+    } catch (error) {
+      request.then(releaseStream, () => {});   // 若之後才開啟成功，也要把鏡頭關掉
+      throw error;
+    }
+    if (currentMode !== "gesture") { releaseStream(stream); return; }
+    gesture.stream = stream;
+    // 鏡頭被拔掉或驅動程式當掉時，瀏覽器會結束這個影像軌。
+    stream.getVideoTracks().forEach((track) => track.addEventListener("ended", () => {
+      if (gesture.stream !== stream) return;
+      stopCamera();
+      $("camMessage").textContent = "鏡頭訊號中斷（被拔除或故障），小車已停止。請檢查鏡頭後再按「開啟鏡頭」";
+    }));
+    const video = $("camVideo");
+    video.srcObject = stream;
+    await withTimeout(video.play(), 5000, "鏡頭沒有畫面");
+    $("camPlaceholder").hidden = true;
+    $("camStopBtn").hidden = false;
+    gesture.lastVideoTime = -1;
+    gesture.lastFrameAt = performance.now();
+    gesture.stalled = false;
+    $("camInfo").textContent = CAM_INFO_TEXT;
+    gesture.raf = requestAnimationFrame(gestureLoop);
+  } catch (error) {
+    if (gesture.stream) { releaseStream(gesture.stream); gesture.stream = null; $("camVideo").srcObject = null; }
+    const name = error && error.name;
+    $("camMessage").textContent =
+        name === "NotAllowedError" || name === "SecurityError" ? "鏡頭權限被拒絕，請在網址列左側允許使用鏡頭後再試"
+      : name === "NotFoundError" || name === "OverconstrainedError" ? "找不到鏡頭，請確認鏡頭已接上"
+      : name === "NotReadableError" || name === "AbortError" ? "鏡頭無法使用：可能故障，或正被其他程式（視訊會議、相機 App）佔用"
+      : `無法啟動手勢辨識：${(error && error.message) || "請確認網路與鏡頭"}`;
+  } finally {
+    gesture.loading = false;
+    $("camStartBtn").disabled = false;
+  }
+}
+
+function stopCamera() {
+  cancelAnimationFrame(gesture.raf);
+  gesture.raf = 0;
+  releaseStream(gesture.stream);
+  gesture.stream = null;
+  gesture.stalled = false;
+  $("camInfo").textContent = CAM_INFO_TEXT;
+  $("camVideo").srcObject = null;
+  const canvas = $("camCanvas");
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  $("camPlaceholder").hidden = false;
+  $("camStopBtn").hidden = true;
+  $("camMessage").textContent = "鏡頭已關閉";
+  applyGesture("none", true);
+}
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// 指尖離手腕比第二指節遠 → 手指伸直（與手的方向無關）
+const fingerExtended = (lm, tip, pip) => dist(lm[tip], lm[0]) > dist(lm[pip], lm[0]) * 1.1;
+const fingerFolded = (lm, tip, pip) => dist(lm[tip], lm[0]) < dist(lm[pip], lm[0]);
+
+function classifyGesture(result) {
+  const lm = result.landmarks && result.landmarks[0];
+  if (!lm) return "none";
+  // 只有食指伸直：依食指方向決定行駛方向
+  if (fingerExtended(lm, 8, 6) && fingerFolded(lm, 12, 10) && fingerFolded(lm, 16, 14) && fingerFolded(lm, 20, 18)) {
+    const dx = -(lm[8].x - lm[5].x);   // 鏡頭是自拍畫面，左右要反過來才是使用者的左右
+    const dy = lm[8].y - lm[5].y;
+    if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? "F" : "B";
+    return dx > 0 ? "R" : "L";
+  }
+  const top = result.gestures && result.gestures[0] && result.gestures[0][0];
+  if (top && top.score >= 0.6 && CATEGORY_TO_COMMAND[top.categoryName]) return CATEGORY_TO_COMMAND[top.categoryName];
+  return "none";
+}
+
+function drawHand(result) {
+  const video = $("camVideo");
+  const canvas = $("camCanvas");
+  if (canvas.width !== video.videoWidth) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; }
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const lm = result.landmarks && result.landmarks[0];
+  if (!lm) return;
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#7fe0b5";
+  ctx.beginPath();
+  for (const [a, b] of HAND_LINKS) {
+    ctx.moveTo(lm[a].x * canvas.width, lm[a].y * canvas.height);
+    ctx.lineTo(lm[b].x * canvas.width, lm[b].y * canvas.height);
+  }
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  for (const p of lm) { ctx.beginPath(); ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2); ctx.fill(); }
+}
+
+function gestureLoop() {
+  const video = $("camVideo");
+  if (!gesture.stream) return;
+  if (video.readyState >= 2 && video.currentTime !== gesture.lastVideoTime) {
+    gesture.lastVideoTime = video.currentTime;
+    try {
+      const result = gesture.recognizer.recognizeForVideo(video, performance.now());
+      gesture.lastFrameAt = performance.now();
+      if (gesture.stalled) { gesture.stalled = false; $("camInfo").textContent = CAM_INFO_TEXT; }
+      drawHand(result);
+      const action = classifyGesture(result);
+      if (action === gesture.candidate) gesture.count++;
+      else { gesture.candidate = action; gesture.count = 1; }
+      if (gesture.count === GESTURE_STABLE_FRAMES) applyGesture(action, false);
+    } catch (_) { /* 單張畫面辨識失敗就略過；一直失敗會由下面的畫面停滯檢查停車 */ }
+  }
+  // 畫面凍結（鏡頭故障）時不會有新的辨識結果，若不處理，小車會照最後一個手勢一直開下去。
+  if (!gesture.stalled && performance.now() - gesture.lastFrameAt > FRAME_STALL_MS) {
+    gesture.stalled = true;
+    gesture.candidate = "none";
+    gesture.count = 0;
+    applyGesture("none", false);
+    $("camInfo").textContent = "⚠️ 鏡頭畫面停止更新，已自動停車；畫面恢復後即可繼續";
+  }
+  gesture.raf = requestAnimationFrame(gestureLoop);
+}
+
+function showGesture(action) {
+  const box = $("gestureNow");
+  const info = GESTURE_INFO[action];
+  box.className = "gesture-now" + (info && info[2] ? " " + info[2] : "");
+  box.querySelector("strong").textContent = info ? info[0] : "—";
+  box.querySelector("span").textContent = info ? info[1] + (isConnected() ? "" : "（尚未連線）") : "沒有手勢 · 待命";
+}
+
+function applyGesture(action, silent) {
+  if (action === gesture.current) return;
+  const previous = gesture.current;
+  gesture.current = action;
+  if (!silent) showGesture(action);
+  else showGesture("none");
+  if (DRIVE_COMMANDS.includes(previous) && !DRIVE_COMMANDS.includes(action)) endDrive();
+  if (silent || !isConnected()) return;
+  if (DRIVE_COMMANDS.includes(action)) beginDrive(action);
+  else if (action === "K") { cancelSequence(); sendCommand("K"); }
+  else if (action !== "none") sendCommand(action);
+}
+
+$("camStartBtn").addEventListener("click", startCamera);
+$("camStopBtn").addEventListener("click", stopCamera);
+
+/* ================= 共用：停止、分頁切換 ================= */
+function stopAllMotion(sendStop) {
+  clearInterval(driveTimer);
+  driveTimer = null;
+  activeDrive = null;
+  markActive(null);
+  cancelSequence();
+  gesture.current = "none";
+  if (recognition) { recognition.abort(); recognition = null; setListening(false); }
+  if (sendStop) sendCommand("K");
+}
+
+function emergencyStop() {
+  stopAllMotion(true);
+  setHeard("已立即停止");
+}
+$("emergencyBtn").addEventListener("click", emergencyStop);
+
+let currentMode = "buttons";
+function switchMode(mode) {
+  if (!["buttons", "voice", "gesture"].includes(mode)) mode = "buttons";
+  if (mode !== currentMode) stopAllMotion(true);   // 只停車，不動連線
+  if (mode !== "gesture" && gesture.stream) stopCamera();
+  currentMode = mode;
+  document.querySelectorAll(".tab").forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.mode === mode)));
+  $("mode-buttons").hidden = mode !== "buttons";
+  $("mode-voice").hidden = mode !== "voice";
+  $("mode-gesture").hidden = mode !== "gesture";
+  // 只改網址的 #，不會重新載入頁面
+  history.replaceState(null, "", mode === "buttons" ? location.pathname + location.search : "#" + mode);
+}
+document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchMode(tab.dataset.mode)));
+
+/* ================= 設定視窗 ================= */
+function fillModelSelect(names) {
+  const select = $("setModel");
+  const keep = select.value || settings.model;
+  select.innerHTML = '<option value="">自動選擇（最新的 Flash 模型）</option>';
+  const list = [...new Set([...(names || []), ...(settings.model ? [settings.model] : [])])];
+  for (const name of list) {
+    const option = document.createElement("option");
+    option.value = option.textContent = name;
+    select.appendChild(option);
+  }
+  select.value = list.includes(keep) ? keep : "";
+}
+
+function openSettings() {
+  $("setAiEnabled").checked = settings.aiEnabled;
+  $("setApiKey").value = settings.apiKey;
+  $("setApiKey").type = "password";
+  $("toggleKeyBtn").textContent = "顯示";
+  fillModelSelect([]);
+  $("setSpeed").value = settings.speed;
+  $("speedOut").textContent = settings.speed;
+  $("setMaxSeconds").value = settings.maxSeconds;
+  $("setCmPerSec").value = settings.cmPerSec;
+  $("setDegPerSec").value = settings.degPerSec;
+  $("setRadioGroup").value = settings.radioGroup;
+  $("testResult").textContent = "";
+  $("settingsDialog").showModal();
+}
+
+function readSettingsForm() {
+  const previousKey = settings.apiKey;
+  settings.aiEnabled = $("setAiEnabled").checked;
+  settings.apiKey = $("setApiKey").value.trim();
+  settings.model = $("setModel").value;
+  settings.speed = Math.round(clamp($("setSpeed").value, 20, 100, 70));
+  settings.maxSeconds = clamp($("setMaxSeconds").value, 1, 30, 10);
+  settings.cmPerSec = clamp($("setCmPerSec").value, 1, 200, 25);
+  settings.degPerSec = clamp($("setDegPerSec").value, 10, 720, 180);
+  settings.radioGroup = Math.round(clamp($("setRadioGroup").value, 0, 255, settings.radioGroup));
+  if (settings.apiKey !== previousKey) autoModel = "";
+}
+
+$("settingsBtn").addEventListener("click", openSettings);
+$("cancelSettingsBtn").addEventListener("click", () => $("settingsDialog").close());
+$("saveSettingsBtn").addEventListener("click", () => {
+  const previousGroup = settings.radioGroup;
+  readSettingsForm();
+  persistSettings();
+  updateAiChip();
+  if (isConnected()) {
+    if (transport === "radio" && settings.radioGroup !== previousGroup) {
+      stopAllMotion(true);                       // 先讓原群組的小車停下
+      sendRaw("G" + settings.radioGroup);
+      link.lastCarReply = 0;
+      link.carOnline = false;
+      refreshLinkStatus();
+    }
+    sendCommand("V" + settings.speed);
+  }
+  $("settingsDialog").close();
+});
+$("setSpeed").addEventListener("input", () => { $("speedOut").textContent = $("setSpeed").value; });
+$("toggleKeyBtn").addEventListener("click", () => {
+  const input = $("setApiKey");
+  input.type = input.type === "password" ? "text" : "password";
+  $("toggleKeyBtn").textContent = input.type === "password" ? "顯示" : "隱藏";
+});
+$("clearKeyBtn").addEventListener("click", () => {
+  $("setApiKey").value = "";
+  settings.apiKey = "";
+  autoModel = "";
+  persistSettings();
+  updateAiChip();
+  $("testResult").textContent = "已清除儲存的金鑰";
+});
+$("loadModelsBtn").addEventListener("click", async () => {
+  readSettingsForm();
+  if (!settings.apiKey) { $("testResult").textContent = "請先填入 API 金鑰"; return; }
+  $("testResult").textContent = "載入模型清單中…";
+  try {
+    const names = await listModels();
+    fillModelSelect(names);
+    $("testResult").textContent = `找到 ${names.length} 個模型；自動選擇會使用 ${pickModel(names)}`;
+  } catch (error) { $("testResult").textContent = `❌ ${error.message}`; }
+});
+$("testAiBtn").addEventListener("click", async () => {
+  readSettingsForm();
+  if (!settings.apiKey) { $("testResult").textContent = "請先填入 API 金鑰"; return; }
+  $("testResult").textContent = "測試中…（不會讓小車移動）";
+  const started = performance.now();
+  try {
+    const result = await askGemini("前進久一點再左轉");
+    const ms = Math.round(performance.now() - started);
+    $("testResult").textContent = `✅ ${settings.model || autoModel}（${ms} ms）：${describeActions(result.actions) || "（無動作）"}`;
+  } catch (error) { $("testResult").textContent = `❌ ${error.message}`; }
+});
+
+/* ================= 其他 ================= */
+$("connectBtn").addEventListener("click", connectActive);
+$("disconnectBtn").addEventListener("click", disconnectActive);
+document.querySelectorAll("[data-transport]").forEach((btn) => btn.addEventListener("click", () => switchTransport(btn.dataset.transport)));
+
+// 視窗切到背景時瀏覽器會放慢計時器，先停車比較安全（連線保持）。
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopAllMotion(true); });
+window.addEventListener("blur", () => { if (activeDrive && currentMode === "buttons") endDrive(); });
+window.addEventListener("pagehide", () => stopAllMotion(true));
+
+switchMode(["#voice", "#gesture"].includes(location.hash) ? location.hash.slice(1) : "buttons");
+updateAiChip();
+applyTransportUi();
+showIdleStatus();
+</script>
+</body>
+</html>
